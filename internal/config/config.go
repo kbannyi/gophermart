@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"os"
 )
@@ -10,7 +11,7 @@ type Config struct {
 	DatabaseURI string
 }
 
-func ParseConfig() Config {
+func ParseConfig() (Config, error) {
 	cfg := Config{}
 	flag.StringVar(&cfg.RunAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&cfg.DatabaseURI, "d", "", "db connection string")
@@ -23,5 +24,9 @@ func ParseConfig() Config {
 		cfg.DatabaseURI = env
 	}
 
-	return cfg
+	if cfg.DatabaseURI == "" {
+		return cfg, errors.New("db connection string is required")
+	}
+
+	return cfg, nil
 }
