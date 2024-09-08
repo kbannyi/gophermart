@@ -22,7 +22,16 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Mount("/", handler.NewHealthHandler())
+
+	r.Route("/health", func(r chi.Router) {
+		h := handler.NewHealthHandler()
+		r.Get("/ping", h.Ping)
+	})
+	r.Route("/api/user", func(r chi.Router) {
+		h := handler.NewAuthHandler()
+		r.Post("/register", h.RegisterUser)
+		r.Post("/login", h.LoginUser)
+	})
 
 	run(cfg, r)
 }
