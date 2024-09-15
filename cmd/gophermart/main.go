@@ -36,7 +36,7 @@ func main() {
 
 	db, err := sql.Open("pgx", cfg.DatabaseURI)
 	if err != nil {
-		logger.Log.Error(fmt.Errorf("Unable to connect to database: %w", err).Error())
+		logger.Log.Error(fmt.Sprintf("Unable to connect to database: %v", err))
 		return
 	}
 	defer db.Close()
@@ -68,15 +68,15 @@ func migrateDB(db *sql.DB) error {
 	logger.Log.Info("Applying DB migrations...")
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("Unable to create migration driver: %w", err)
+		return fmt.Errorf("unable to create migration driver: %w", err)
 	}
 	m, err := migrate.NewWithDatabaseInstance("file://db/migrations", "postgres", driver)
 	if err != nil {
-		return fmt.Errorf("Unable to create migrator instance: %w", err)
+		return fmt.Errorf("unable to create migrator instance: %w", err)
 	}
 	err = m.Up()
 	if err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("Unable to apply migrations: %w", err)
+		return fmt.Errorf("unable to apply migrations: %w", err)
 	}
 	logger.Log.Info("DB migrations applied")
 
