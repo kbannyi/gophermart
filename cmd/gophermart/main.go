@@ -12,14 +12,18 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	chi_middleware "github.com/go-chi/chi/middleware"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
 	"github.com/kbannyi/gophermart/internal/config"
 	"github.com/kbannyi/gophermart/internal/handler"
 	"github.com/kbannyi/gophermart/internal/logger"
+	"github.com/kbannyi/gophermart/internal/middleware"
+	"github.com/kbannyi/gophermart/internal/repository"
+	"github.com/kbannyi/gophermart/internal/service"
 )
 
 func main() {
@@ -30,20 +34,29 @@ func main() {
 		return
 	}
 
-	if err := migrateDB(cfg); err != nil {
+	db, err := sql.Open("pgx", cfg.DatabaseURI)
+	if err != nil {
+		logger.Log.Error(fmt.Errorf("Unable to connect to database: %w", err).Error())
+		return
+	}
+	defer db.Close()
+	if err := migrateDB(db); err != nil {
 		logger.Log.Error(err.Error())
 		return
 	}
+	dbx := sqlx.NewDb(db, "pgx")
+	userRepository := repository.NewUserRepository(dbx)
+	authService := service.NewAuthService(userRepository)
 
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-
+	r.Use(chi_middleware.Logger)
+	r.Use(middleware.AuthExtractor)
 	r.Route("/health", func(r chi.Router) {
 		h := handler.NewHealthHandler()
 		r.Get("/ping", h.Ping)
 	})
 	r.Route("/api/user", func(r chi.Router) {
-		h := handler.NewAuthHandler()
+		h := handler.NewAuthHandler(authService)
 		r.Post("/register", h.RegisterUser)
 		r.Post("/login", h.LoginUser)
 	})
@@ -51,13 +64,8 @@ func main() {
 	run(cfg, r)
 }
 
-func migrateDB(cfg config.Config) error {
+func migrateDB(db *sql.DB) error {
 	logger.Log.Info("Applying DB migrations...")
-	db, err := sql.Open("pgx", cfg.DatabaseURI)
-	if err != nil {
-		return fmt.Errorf("Unable to connect to database: %w", err)
-	}
-	defer db.Close()
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("Unable to create migration driver: %w", err)

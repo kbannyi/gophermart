@@ -4,8 +4,12 @@ go 1.22.5
 
 require (
 	github.com/go-chi/chi v1.5.5
+	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/golang-migrate/migrate/v4 v4.17.1
+	github.com/google/uuid v1.4.0
+	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa
 	github.com/jackc/pgx/v5 v5.5.4
+	github.com/jmoiron/sqlx v1.4.0
 	github.com/lmittmann/tint v1.0.5
 )
 
