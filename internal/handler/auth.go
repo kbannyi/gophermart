@@ -3,11 +3,13 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/kbannyi/gophermart/internal/auth"
 	"github.com/kbannyi/gophermart/internal/domain"
 	"github.com/kbannyi/gophermart/internal/logger"
+	"github.com/kbannyi/gophermart/internal/repository"
 )
 
 type AuthService interface {
@@ -39,8 +41,12 @@ func (h AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	user, err := h.service.Register(ctx, reqmodel.Login, reqmodel.Password)
+	if errors.Is(err, repository.ErrAlreadyExists) {
+		http.Error(w, "login already exists", http.StatusConflict)
+		return
+	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	setAuthToken(w, auth.AuthUser{
@@ -67,8 +73,12 @@ func (h AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	user, err := h.service.Login(ctx, reqmodel.Login, reqmodel.Password)
+	if errors.Is(err, repository.ErrNotFound) {
+		http.Error(w, "invalid login and/or password", http.StatusUnauthorized)
+		return
+	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	setAuthToken(w, auth.AuthUser{
