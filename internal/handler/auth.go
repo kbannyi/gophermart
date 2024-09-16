@@ -91,7 +91,7 @@ func setAuthToken(w http.ResponseWriter, u auth.AuthUser) {
 	token, err := auth.BuildJWTString(u)
 	if err != nil {
 		logger.Log.Error(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set(auth.HeaderName, token)

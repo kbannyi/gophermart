@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -47,6 +48,8 @@ func main() {
 	dbx := sqlx.NewDb(db, "pgx")
 	userRepository := repository.NewUserRepository(dbx)
 	authService := service.NewAuthService(userRepository)
+	jobctx, jobcancel := context.WithCancel(context.Background())
+	var jobwg sync.WaitGroup
 
 	r := chi.NewRouter()
 	r.Use(chi_middleware.Logger)
@@ -56,12 +59,23 @@ func main() {
 		r.Get("/ping", h.Ping)
 	})
 	r.Route("/api/user", func(r chi.Router) {
-		h := handler.NewAuthHandler(authService)
-		r.Post("/register", h.RegisterUser)
-		r.Post("/login", h.LoginUser)
+		authHandler := handler.NewAuthHandler(authService)
+		r.Post("/register", authHandler.RegisterUser)
+		r.Post("/login", authHandler.LoginUser)
+
+		r = r.With(middleware.AuthGuard)
+		orderRepo := repository.NewOrderRepository(dbx)
+		orderService := service.NewOrderService(orderRepo)
+		orderService.RunBackgroundFetch(jobctx.Done(), &jobwg)
+		orderHandler := handler.NewOrderHandler(orderService)
+		r.Post("/orders", orderHandler.SaveOrder)
+		r.Get("/orders", orderHandler.GetOrders)
 	})
 
 	run(cfg, r)
+	jobcancel()
+	jobwg.Wait()
+	logger.Log.Info("Exiting gracefully")
 }
 
 func migrateDB(db *sql.DB) error {
@@ -96,9 +110,10 @@ func run(cfg config.Config, h http.Handler) {
 	}()
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sigChan
 
+	logger.Log.Info("Shutting down...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
