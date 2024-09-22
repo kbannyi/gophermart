@@ -33,8 +33,8 @@ func NewOrderService(r OrderRepository) OrderService {
 }
 
 func (s OrderService) RunBackgroundFetch(done <-chan struct{}, wg *sync.WaitGroup) {
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		logger.Log.Info("RunBackgroundFetch is started")
 		<-done
 		logger.Log.Info("RunBackgroundFetch is finished")

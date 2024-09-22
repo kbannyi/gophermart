@@ -41,7 +41,7 @@ func FromString(s string) (OrderStatus, error) {
 	case "PROCESSED":
 		return StatusProcessed, nil
 	default:
-		return 0, errors.New(fmt.Sprintf("unknown value: %s", s))
+		return 0, fmt.Errorf("unknown value: %s", s)
 	}
 }
 

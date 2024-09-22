@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/kbannyi/gophermart/internal/domain"
 )
@@ -25,11 +23,7 @@ func (r OrderRepository) SaveNewOrder(ctx context.Context, order domain.Order) e
 		VALUES (:id, :status, :user_id, :created_utc, :updated_utc)`,
 		order)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
-			return ErrAlreadyExists
-		}
-		return err
+		return convertErr(err)
 	}
 
 	return nil

@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/kbannyi/gophermart/internal/domain"
 )
@@ -21,12 +19,8 @@ func NewUserRepository(db *sqlx.DB) UserRepository {
 
 func (r UserRepository) Save(ctx context.Context, u domain.User) error {
 	_, err := r.db.NamedExecContext(ctx, "INSERT INTO users (id, login, password) VALUES (:id, :login, :password);", u)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
-		return ErrAlreadyExists
-	}
 	if err != nil {
-		return err
+		return convertErr(err)
 	}
 
 	return nil

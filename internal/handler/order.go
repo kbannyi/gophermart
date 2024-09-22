@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/kbannyi/gophermart/internal/domain"
@@ -14,6 +13,7 @@ import (
 	"github.com/kbannyi/gophermart/internal/logger"
 	"github.com/kbannyi/gophermart/internal/repository"
 	"github.com/kbannyi/gophermart/internal/service"
+	"github.com/kbannyi/gophermart/internal/service/luhn"
 )
 
 type OrderService interface {
@@ -36,7 +36,7 @@ func (h OrderHandler) SaveOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	orderid := string(linkBytes)
-	if len(orderid) == 0 || !validOrderNumber(orderid) {
+	if !luhn.Valid(orderid) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
@@ -87,31 +87,4 @@ func (h OrderHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Error(err.Error())
 		return
 	}
-}
-
-func validOrderNumber(id string) bool {
-	number, err := strconv.Atoi(id)
-	if err != nil {
-		return false
-	}
-	return (number%10+checksum(number/10))%10 == 0
-}
-
-func checksum(number int) int {
-	var luhn int
-
-	for i := 0; number > 0; i++ {
-		cur := number % 10
-
-		if i%2 == 0 { // even
-			cur = cur * 2
-			if cur > 9 {
-				cur = cur%10 + cur/10
-			}
-		}
-
-		luhn += cur
-		number = number / 10
-	}
-	return luhn % 10
 }
