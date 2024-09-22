@@ -30,7 +30,7 @@ func (r WithdrawalRepository) Withdraw(ctx context.Context, w domain.Withdrawal)
 	FROM orders
 	WHERE user_id = $1
 	AND accrual IS NOT NULL;
-	`, w.UserId)
+	`, w.UserID)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (r WithdrawalRepository) Withdraw(ctx context.Context, w domain.Withdrawal)
 	SELECT amount
 	FROM withdrawals
 	WHERE user_id = $1;
-	`, w.UserId)
+	`, w.UserID)
 	if err != nil {
 		return err
 	}

@@ -34,7 +34,7 @@ func (s WithdrawalService) Withdraw(ctx context.Context, orderID string, sum dec
 	}
 	w := domain.Withdrawal{
 		ID:         uuid.NewString(),
-		UserId:     u.UserID,
+		UserID:     u.UserID,
 		Amount:     sum,
 		CreatedUTC: time.Now(),
 		OrderID:    orderID,

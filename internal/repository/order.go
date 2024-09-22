@@ -52,11 +52,10 @@ func (r OrderRepository) GetOrders(ctx context.Context, userid string) ([]domain
 	return orders, nil
 }
 
-func (r OrderRepository) SelectForFetching(ctx context.Context, pageSize int, page int) ([]domain.Order, error) {
-	var orders []domain.Order
+func (r OrderRepository) SelectForFetching(ctx context.Context, orders *[]domain.Order, pageSize int, page int) error {
 	offset := page * pageSize
 	err := r.db.SelectContext(ctx,
-		&orders,
+		orders,
 		`SELECT *
 			FROM orders
 			WHERE status = $3 OR status = $4
@@ -64,10 +63,10 @@ func (r OrderRepository) SelectForFetching(ctx context.Context, pageSize int, pa
 			LIMIT $1 OFFSET $2;`,
 		pageSize, offset, domain.StatusNew.String(), domain.StatusProcessing.String())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return orders, nil
+	return nil
 }
 
 func (r OrderRepository) BatchSave(ctx context.Context, orders []domain.Order) error {

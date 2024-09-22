@@ -65,9 +65,10 @@ func main() {
 
 		r = r.With(middleware.AuthGuard)
 		orderRepo := repository.NewOrderRepository(dbx)
-		orderService := service.NewOrderService(orderRepo)
-		orderService.RunBackgroundFetch(jobctx.Done(), &jobwg)
+		worker := service.NewOrderFetcher(orderRepo, jobctx, &jobwg, cfg)
+		orderService := service.NewOrderService(orderRepo, worker)
 		orderHandler := handler.NewOrderHandler(orderService)
+		worker.Run()
 		r.Post("/orders", orderHandler.SaveOrder)
 		r.Get("/orders", orderHandler.GetOrders)
 

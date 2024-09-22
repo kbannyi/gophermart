@@ -11,7 +11,7 @@ import (
 type Order struct {
 	ID         string              `db:"id"`
 	Status     OrderStatus         `db:"status"`
-	UserId     string              `db:"user_id"`
+	UserID     string              `db:"user_id"`
 	Accrual    decimal.NullDecimal `db:"accrual"`
 	CreatedUTC time.Time           `db:"created_utc"`
 	UpdatedUTC *time.Time          `db:"updated_utc"`

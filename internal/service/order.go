@@ -3,46 +3,38 @@ package service
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/kbannyi/gophermart/internal/auth"
 	"github.com/kbannyi/gophermart/internal/domain"
-	"github.com/kbannyi/gophermart/internal/logger"
 	"github.com/kbannyi/gophermart/internal/repository"
 	"github.com/shopspring/decimal"
 )
 
 var ErrBelongToAnother = errors.New("this order id belongs to another user")
 
-type OrderRepository interface { // todo разделить на два интерфейса
+type OrderRepository interface {
 	SaveNewOrder(context.Context, domain.Order) error
 	Get(ctx context.Context, id string) (*domain.Order, error)
 	GetOrders(ctx context.Context, userid string) ([]domain.Order, error)
-	SelectForFetching(ctx context.Context, pageSize int, page int) ([]domain.Order, error)
-	BatchSave(ctx context.Context, orders []domain.Order) error
+}
+
+type OrderFetcherSignaler interface {
+	Activate()
 }
 
 type OrderService struct {
 	repository OrderRepository
+	fetcher    OrderFetcherSignaler
 }
 
-func NewOrderService(r OrderRepository) OrderService {
+func NewOrderService(r OrderRepository, f OrderFetcherSignaler) OrderService {
 	s := OrderService{
 		repository: r,
+		fetcher:    f,
 	}
 
 	return s
-}
-
-func (s OrderService) RunBackgroundFetch(done <-chan struct{}, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		logger.Log.Info("RunBackgroundFetch is started")
-		<-done
-		logger.Log.Info("RunBackgroundFetch is finished")
-		wg.Done()
-	}()
 }
 
 func (s OrderService) SaveNewOrder(ctx context.Context, id string) error {
@@ -53,7 +45,7 @@ func (s OrderService) SaveNewOrder(ctx context.Context, id string) error {
 	o := domain.Order{
 		ID:         id,
 		Status:     domain.StatusNew,
-		UserId:     u.UserID,
+		UserID:     u.UserID,
 		Accrual:    decimal.NullDecimal{},
 		CreatedUTC: time.Now(),
 		UpdatedUTC: nil,
@@ -65,13 +57,14 @@ func (s OrderService) SaveNewOrder(ctx context.Context, id string) error {
 			if e != nil {
 				return e
 			}
-			if existing.UserId != o.UserId {
+			if existing.UserID != o.UserID {
 				return ErrBelongToAnother
 			}
 		}
 		return err
 	}
 
+	s.fetcher.Activate()
 	return nil
 }
 
