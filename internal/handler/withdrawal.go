@@ -13,11 +13,12 @@ import (
 	"github.com/kbannyi/gophermart/internal/models"
 	"github.com/kbannyi/gophermart/internal/repository"
 	"github.com/kbannyi/gophermart/internal/service/luhn"
+	"github.com/shopspring/decimal"
 )
 
 type WithdrawalService interface {
 	GetBalance(context.Context) (*models.Balance, error)
-	Withdraw(ctx context.Context, orderID string, sum int) error
+	Withdraw(ctx context.Context, orderID string, sum decimal.Decimal) error
 	GetWithdrawals(context.Context) ([]domain.Withdrawal, error)
 }
 
@@ -38,11 +39,12 @@ func (h WithdrawalHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	encoder := json.NewEncoder(w)
 	err = encoder.Encode(dto.BalanceResponse{
-		Current:   balance.Current,
-		Withdrawn: balance.Withdrawn,
+		Current:   balance.Current.InexactFloat64(),
+		Withdrawn: balance.Withdrawn.InexactFloat64(),
 	})
 	if err != nil {
 		logger.Log.Error(err.Error())
@@ -67,7 +69,7 @@ func (h WithdrawalHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "sum must be positive number", http.StatusBadRequest)
 		return
 	}
-	err = h.service.Withdraw(ctx, req.OrderID, req.Sum)
+	err = h.service.Withdraw(ctx, req.OrderID, decimal.NewFromFloat(req.Sum))
 	if err != nil {
 		if errors.Is(err, repository.ErrNotEnoughPoints) {
 			w.WriteHeader(http.StatusPaymentRequired)
@@ -100,12 +102,14 @@ func (h WithdrawalHandler) GetWithdrawals(w http.ResponseWriter, r *http.Request
 	respmodels := make([]dto.WithdrawalResponse, 0, len(withdrawals))
 	for _, w := range withdrawals {
 		respmodels = append(respmodels, dto.WithdrawalResponse{
-			OrderID:     w.ID,
-			Sum:         w.Amount,
+			OrderID:     w.OrderID,
+			Sum:         w.Amount.InexactFloat64(),
 			ProcessedAt: w.CreatedUTC.Format(time.RFC3339),
 		})
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	encoder := json.NewEncoder(w)
 	err = encoder.Encode(respmodels)
 	if err != nil {

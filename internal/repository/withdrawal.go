@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/kbannyi/gophermart/internal/domain"
 	"github.com/kbannyi/gophermart/internal/models"
+	"github.com/shopspring/decimal"
 )
 
 type WithdrawalRepository struct {
@@ -20,12 +21,12 @@ func NewWithdrawalRepository(db *sqlx.DB) WithdrawalRepository {
 	}
 }
 
-var ErrNotEnoughPoints = errors.New("not enough points on the balance")
+var ErrNotEnoughPoints = errors.New("not enough points")
 
 func (r WithdrawalRepository) Withdraw(ctx context.Context, w domain.Withdrawal) error {
-	earned := new(int)
-	err := r.db.GetContext(ctx, &earned, `
-	SELECT COALESCE(SUM(accrual), 0)
+	var accruals []decimal.Decimal
+	err := r.db.SelectContext(ctx, &accruals, `
+	SELECT accrual
 	FROM orders
 	WHERE user_id = $1
 	AND accrual IS NOT NULL;
@@ -42,16 +43,18 @@ func (r WithdrawalRepository) Withdraw(ctx context.Context, w domain.Withdrawal)
 	}
 	defer tx.Rollback()
 
-	withdrawn := new(int)
-	err = tx.GetContext(ctx, withdrawn, `
-	SELECT COALESCE(SUM(amount), 0)
+	var withdrawals []decimal.Decimal
+	err = tx.SelectContext(ctx, &withdrawals, `
+	SELECT amount
 	FROM withdrawals
 	WHERE user_id = $1;
 	`, w.UserId)
 	if err != nil {
 		return err
 	}
-	if *earned < (*withdrawn + w.Amount) {
+	earned := decimal.Sum(decimal.Zero, accruals...)
+	withdrawn := decimal.Sum(w.Amount, withdrawals...)
+	if earned.LessThan(withdrawn) {
 		return ErrNotEnoughPoints
 	}
 	_, err = tx.NamedExecContext(ctx, `
@@ -79,10 +82,9 @@ func (r WithdrawalRepository) GetBalance(ctx context.Context, userid string) (*m
 	}
 	defer tx.Rollback()
 
-	balance := models.Balance{UserID: userid}
-	earned := new(int)
-	err = tx.GetContext(ctx, &earned, `
-	SELECT COALESCE(SUM(accrual), 0)
+	var earned []decimal.Decimal
+	err = tx.SelectContext(ctx, &earned, `
+	SELECT accrual
 	FROM orders
 	WHERE user_id = $1
 	AND accrual IS NOT NULL;
@@ -90,8 +92,9 @@ func (r WithdrawalRepository) GetBalance(ctx context.Context, userid string) (*m
 	if err != nil {
 		return nil, err
 	}
-	err = tx.GetContext(ctx, &balance.Withdrawn, `
-	SELECT COALESCE(SUM(amount), 0)
+	var withdrawn []decimal.Decimal
+	err = tx.SelectContext(ctx, &withdrawn, `
+	SELECT amount
 	FROM withdrawals
 	WHERE user_id = $1;
 	`, userid)
@@ -103,7 +106,13 @@ func (r WithdrawalRepository) GetBalance(ctx context.Context, userid string) (*m
 		return nil, err
 	}
 
-	balance.Current = *earned - balance.Withdrawn
+	totalEarned := decimal.Sum(decimal.Zero, earned...)
+	totalWithdrawn := decimal.Sum(decimal.Zero, withdrawn...)
+	balance := models.Balance{
+		UserID:    userid,
+		Current:   totalEarned.Sub(totalWithdrawn),
+		Withdrawn: totalWithdrawn,
+	}
 
 	return &balance, nil
 }

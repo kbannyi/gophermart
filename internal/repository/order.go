@@ -51,3 +51,42 @@ func (r OrderRepository) GetOrders(ctx context.Context, userid string) ([]domain
 
 	return orders, nil
 }
+
+func (r OrderRepository) SelectForFetching(ctx context.Context, pageSize int, page int) ([]domain.Order, error) {
+	var orders []domain.Order
+	offset := page * pageSize
+	err := r.db.SelectContext(ctx,
+		&orders,
+		`SELECT *
+			FROM orders
+			WHERE status = $3 OR status = $4
+			ORDER BY created_utc
+			LIMIT $1 OFFSET $2;`,
+		pageSize, offset, domain.StatusNew.String(), domain.StatusProcessing.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
+func (r OrderRepository) BatchSave(ctx context.Context, orders []domain.Order) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.NamedExecContext(ctx, `
+	UPDATE orders
+	SET status=:status,
+		accrual=:accrual,
+		updated_utc=:updated_utc
+	WHERE id = :id;
+	`, orders)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

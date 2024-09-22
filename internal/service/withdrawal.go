@@ -8,6 +8,7 @@ import (
 	"github.com/kbannyi/gophermart/internal/auth"
 	"github.com/kbannyi/gophermart/internal/domain"
 	"github.com/kbannyi/gophermart/internal/models"
+	"github.com/shopspring/decimal"
 )
 
 type WithdrawalRepository interface {
@@ -26,7 +27,7 @@ func NewWithdrawalService(r WithdrawalRepository) WithdrawalService {
 	}
 }
 
-func (s WithdrawalService) Withdraw(ctx context.Context, orderID string, sum int) error {
+func (s WithdrawalService) Withdraw(ctx context.Context, orderID string, sum decimal.Decimal) error {
 	u, err := auth.FromContext(ctx)
 	if err != nil {
 		return err

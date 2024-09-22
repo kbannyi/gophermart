@@ -11,6 +11,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.4
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lmittmann/tint v1.0.5
+	github.com/shopspring/decimal v1.4.0
 )
 
 require (

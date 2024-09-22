@@ -75,14 +75,14 @@ func (h OrderHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
 		response = append(response, dto.OrderResponse{
 			Number:     o.ID,
 			Status:     o.Status.String(),
-			Accrual:    o.Accrual,
+			Accrual:    o.Accrual.Decimal.InexactFloat64(),
 			UploadedAt: o.CreatedUTC.Format(time.RFC3339),
 		})
 	}
 
-	encoder := json.NewEncoder(w)
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
+	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(&response); err != nil {
 		logger.Log.Error(err.Error())
 		return

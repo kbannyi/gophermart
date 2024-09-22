@@ -10,14 +10,17 @@ import (
 	"github.com/kbannyi/gophermart/internal/domain"
 	"github.com/kbannyi/gophermart/internal/logger"
 	"github.com/kbannyi/gophermart/internal/repository"
+	"github.com/shopspring/decimal"
 )
 
 var ErrBelongToAnother = errors.New("this order id belongs to another user")
 
-type OrderRepository interface {
+type OrderRepository interface { // todo разделить на два интерфейса
 	SaveNewOrder(context.Context, domain.Order) error
 	Get(ctx context.Context, id string) (*domain.Order, error)
 	GetOrders(ctx context.Context, userid string) ([]domain.Order, error)
+	SelectForFetching(ctx context.Context, pageSize int, page int) ([]domain.Order, error)
+	BatchSave(ctx context.Context, orders []domain.Order) error
 }
 
 type OrderService struct {
@@ -51,7 +54,7 @@ func (s OrderService) SaveNewOrder(ctx context.Context, id string) error {
 		ID:         id,
 		Status:     domain.StatusNew,
 		UserId:     u.UserID,
-		Accrual:    nil,
+		Accrual:    decimal.NullDecimal{},
 		CreatedUTC: time.Now(),
 		UpdatedUTC: nil,
 	}
