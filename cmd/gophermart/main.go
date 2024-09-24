@@ -70,14 +70,14 @@ func main() {
 		orderHandler := handler.NewOrderHandler(orderService)
 		worker.Run()
 		r.Post("/orders", orderHandler.SaveOrder)
-		r.Get("/orders", orderHandler.GetOrders)
+		r.With(chi_middleware.Compress(5)).Get("/orders", orderHandler.GetOrders)
 
 		withdrawalRepository := repository.NewWithdrawalRepository(dbx)
 		withdrawalService := service.NewWithdrawalService(withdrawalRepository)
 		withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService)
 		r.Get("/balance", withdrawalHandler.GetBalance)
 		r.Post("/balance/withdraw", withdrawalHandler.Withdraw)
-		r.Get("/withdrawals", withdrawalHandler.GetWithdrawals)
+		r.With(chi_middleware.Compress(5)).Get("/withdrawals", withdrawalHandler.GetWithdrawals)
 	})
 
 	run(cfg, r)
