@@ -1,7 +1,7 @@
 CREATE TABLE withdrawals
 (
     id          varchar(100) NOT NULL,
-    user_id     varchar(100) NOT NULL,
+    user_id     varchar(100) REFERENCES users (id) NOT NULL,
     order_id    varchar(100) NOT NULL,
     amount      int4         NOT NULL,
     created_utc timestamp    NOT NULL
